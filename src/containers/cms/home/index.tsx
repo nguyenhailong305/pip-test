@@ -2,75 +2,120 @@ import React, { useEffect, useState } from "react";
 import useEmployeeList from "./controller";
 import { Alert, Button, Input, Modal } from "antd";
 import { supabase } from "@/utils/supabase";
-import { fetchUserRoles } from "@/hooks/useUser";
 
 export default function HomeContainer({ session }) {
-  const [visible, setVisible] = useState(false);
-  const [employeeName, setEmployeeName] = useState("");
-  const [role, setRole] = useState(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [username, setUsername] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [sessionAuth, setSessionAuth] = useState();
 
-  const {
-    employees,
-    errorText,
-    setErrorText,
-    deleteEmployee,
-    loading,
-    addEmployee,
-  } = useEmployeeList({ session });
+  const { employees, errorText, setErrorText, loading, addEmployee } =
+    useEmployeeList({ session });
 
-  useEffect(() => {
-    const fetchUserRoles = async () => {
-      try {
-        const { data, error } = await supabase.from("user_roles").select("*");
+    useEffect(() => {
+      supabase.auth
+        .getSession()
+        .then(({ data }) => {
+          const newSession = data.session;
+          if (newSession && newSession.user) {
+            setSessionAuth(newSession.user.id);
+          }
+        })
+        .catch((error) => console.error(error));
+    }, [session]);
+  
 
-        if (error) {
-          console.error("Error fetching user role:", error);
-          throw error;
-        }
+   
 
-        if (data) {
-          setRole(data);
-        }
-      } catch (error) {
-        console.error("Error fetching user role:", error);
-      }
-    };
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    // Fetch roles for current user
+    const { data: roles, error: rolesError } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", sessionAuth);
 
-    if (session) {
-      fetchUserRoles();
+
+    if (rolesError) {
+      console.error("Error fetching roles: ", rolesError);
+      return;
     }
-  }, [session]);
 
-  const handleOk = async () => {
-    if ((employeeName && role === "admin") || role === "mod") {
-      const newEmployee = await addEmployee({ full_name: employeeName });
-      if (newEmployee) {
-        setVisible(false);
-        setEmployeeName("");
-      }
+    const userRoles = roles.map((userRole) => userRole.role);
+
+    // Fetch permissions for user's roles
+    if ( !userRoles.includes("moderator")) {
+      console.error("User is not an admin");
+      return;
+    }
+  
+    // If user is an admin, proceed with creating the employee
+    const { data, error } = await supabase
+      .from("employees")
+      .insert([{ username, full_name: fullName, avatar_url: avatarUrl , created_by : sessionAuth }]);
+
+    // If user has permission, proceed with creating the employee
+    if (error) {
+      console.error("Error adding user: ", error);
     } else {
-      setErrorText("You do not have permission to add a new employee.");
+      console.log("User added successfully: ", data);
+      setUsername("");
+      setFullName("");
+      setAvatarUrl("");
+      setIsFormOpen(false);
     }
   };
 
   return (
     <div className="w-full">
-      <Button type="primary" onClick={() => setVisible(true)}>
-        Add Employee
-      </Button>
-      <Modal
-        title="Add Employee"
-        open={visible}
-        onOk={handleOk}
-        onCancel={() => setVisible(false)}
-        okButtonProps={{ loading }}
+      <button
+        onClick={() => setIsFormOpen(true)}
+        className="bg-blue-500 text-white font-semibold py-2 px-4 rounded"
       >
-        <Input
-          value={employeeName}
-          onChange={(e) => setEmployeeName(e.target.value)}
-          placeholder="Employee Name"
-        />
-      </Modal>
+        Add User
+      </button>
+
+      {isFormOpen && (
+        <form onSubmit={handleSubmit} className="mt-8">
+          <label className="block">
+            <span className="text-gray-700">Username:</span>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="mt-1 block w-full rounded-md bg-gray-100 border-transparent focus:border-gray-500 focus:bg-white focus:ring-0"
+            />
+          </label>
+
+          <label className="block mt-4">
+            <span className="text-gray-700">Full Name:</span>
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="mt-1 block w-full rounded-md bg-gray-100 border-transparent focus:border-gray-500 focus:bg-white focus:ring-0"
+            />
+          </label>
+
+          <label className="block mt-4">
+            <span className="text-gray-700">Avatar URL:</span>
+            <input
+              type="text"
+              value={avatarUrl}
+              onChange={(e) => setAvatarUrl(e.target.value)}
+              className="mt-1 block w-full rounded-md bg-gray-100 border-transparent focus:border-gray-500 focus:bg-white focus:ring-0"
+            />
+          </label>
+
+          <button
+            type="submit"
+            className="mt-6 bg-blue-500 text-white font-semibold py-2 px-4 rounded"
+          >
+            Submit
+          </button>
+        </form>
+      )}
       <h1 className="mb-12">Employee List.</h1>
       {!!errorText && <Alert text={errorText} />}
       <div className="bg-white shadow overflow-hidden rounded-md">
@@ -107,7 +152,7 @@ const Employee = ({ employee, onDelete }) => {
             </div>
           </div>
         </div>
-        
+
         <button
           onClick={(e) => {
             e.preventDefault();

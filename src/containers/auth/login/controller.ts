@@ -6,6 +6,8 @@ export const useLogin = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const router = useRouter();
+
+
   const handleLogin = async (
     type: string,
     username: string,
@@ -26,6 +28,7 @@ export const useLogin = () => {
         alert("Error with auth: " + error.message);
       } else if (!user)
         alert("Signup successful, confirmation mail should be sent soon!");
+        
       router.push("/");
     } catch (error: any) {
       console.log("error", error);

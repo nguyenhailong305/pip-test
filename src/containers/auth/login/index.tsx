@@ -39,7 +39,7 @@ export default function LoginContainer() {
                 e.preventDefault();
                 handleLogin("SIGNUP", username, password);
               }}
-              href={"/channels"}
+
               className="bg-indigo-700 hover:bg-teal text-white py-2 px-4 rounded text-center transition duration-150 hover:bg-indigo-600 hover:text-white"
             >
               Sign up
@@ -49,7 +49,7 @@ export default function LoginContainer() {
                 e.preventDefault();
                 handleLogin("LOGIN", username, password);
               }}
-              href={"/channels"}
+    
               className="border border-indigo-700 text-indigo-700 py-2 px-4 rounded w-full text-center transition duration-150 hover:bg-indigo-700 hover:text-white"
             >
               Login
