@@ -8,8 +8,6 @@ export const useLogin = () => {
   const router = useRouter();
 
 
-
-
   const handleLogin = async (
     type: string,
     username: string,
@@ -29,7 +27,6 @@ export const useLogin = () => {
       if (error) {
         alert("Error with auth: " + error.message);
       } else if (!user)
-        localStorage.setItem('user' , user)
         alert("Signup successful, confirmation mail should be sent soon!");
         
       router.push("/");

@@ -8,20 +8,35 @@ export default function HomeContainer({ session }) {
   const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [sessionAuth, setSessionAuth] = useState();
 
   const { employees, errorText, setErrorText, loading, addEmployee } =
     useEmployeeList({ session });
 
-    const user = supabase.auth.getSession()
+    useEffect(() => {
+      supabase.auth
+        .getSession()
+        .then(({ data }) => {
+          const newSession = data.session;
+          if (newSession && newSession.user) {
+            setSessionAuth(newSession.user.id);
+          }
+        })
+        .catch((error) => console.error(error));
+    }, [session]);
+  
+
+   
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     // Fetch roles for current user
     const { data: roles, error: rolesError } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", session);
+      .eq("user_id", sessionAuth);
 
-      console.log('data' ,sess )
+
     if (rolesError) {
       console.error("Error fetching roles: ", rolesError);
       return;
@@ -30,32 +45,17 @@ export default function HomeContainer({ session }) {
     const userRoles = roles.map((userRole) => userRole.role);
 
     // Fetch permissions for user's roles
-    const { data: permissions, error: permissionsError } = await supabase
-      .from("role_permissions")
-      .select("permission")
-      .in("role", userRoles);
-
-    if (permissionsError) {
-      console.error("Error fetching permissions: ", permissionsError);
+    if ( !userRoles.includes("moderator")) {
+      console.error("User is not an admin");
       return;
     }
-
-    const userPermissions = permissions.map((perm) => perm.permission);
-
-    // Check if user has permission to create employees
-    if (
-      !userPermissions.includes("employees.create") &&
-      !userPermissions.includes("employees.all")
-    ) {
-      console.error("User does not have permission to create employees");
-      return;
-    }
-
-    // If user has permission, proceed with creating the employee
+  
+    // If user is an admin, proceed with creating the employee
     const { data, error } = await supabase
       .from("employees")
-      .insert([{ username, full_name: fullName, avatar_url: avatarUrl }]);
+      .insert([{ username, full_name: fullName, avatar_url: avatarUrl , created_by : sessionAuth }]);
 
+    // If user has permission, proceed with creating the employee
     if (error) {
       console.error("Error adding user: ", error);
     } else {
