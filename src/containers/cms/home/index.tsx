@@ -1,69 +1,92 @@
 import React, { useEffect, useState } from "react";
 import useEmployeeList from "./controller";
-import { Alert, Button, Input, Modal } from "antd";
+import { DeleteOutlined, EditOutlined } from "@ant-design/icons";
+import { Modal } from "antd";
 import { supabase } from "@/utils/supabase";
 
 export default function HomeContainer({ session }) {
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [username, setUsername] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [sessionAuth, setSessionAuth] = useState();
+  const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(
+    null
+  );
+  const {
+    fetchEmployees,
+    employees,
+    username,
+    fullName,
+    avatarUrl,
+    setErrorText,
+    setFullName,
+    setAvatarUrl,
+    setUsername,
+    deleteEmployee,
+    addEmployee,
+    resetForm,
+    setIsFormOpen,
+    isFormOpen,
+    updateEmployee,
+    status,
+    sessionAuth,
+    avatarFile,
+    setAvatarFile,
+  } = useEmployeeList();
 
-  const { employees, errorText, setErrorText, loading, addEmployee } =
-    useEmployeeList({ session });
+  useEffect(() => {
+    fetchEmployees();
+  }, [status]);
 
-    useEffect(() => {
-      supabase.auth
-        .getSession()
-        .then(({ data }) => {
-          const newSession = data.session;
-          if (newSession && newSession.user) {
-            setSessionAuth(newSession.user.id);
-          }
-        })
-        .catch((error) => console.error(error));
-    }, [session]);
-  
-
-   
+  const handleEdit = (employee) => {
+    // Fill in the form with the current employee's data
+    setUsername(employee.username);
+    setFullName(employee.full_name);
+    setAvatarUrl(employee.avatar_url);
+    setEditingEmployeeId(employee.id);
+    // Open the form
+    setIsFormOpen(true);
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    // Fetch roles for current user
-    const { data: roles, error: rolesError } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", sessionAuth);
 
+    if (username && fullName && avatarUrl) {
+      // const filePath = `avatars/${avatarFile.name}`;
+      // const { error: uploadError } = await supabase.storage
+      //   .from("avatars")
+      //   .upload(filePath, avatarFile);
 
-    if (rolesError) {
-      console.error("Error fetching roles: ", rolesError);
-      return;
-    }
+      // if (uploadError) {
+      //   console.error("Failed to upload avatar:", uploadError);
+      //   return;
+      // }
 
-    const userRoles = roles.map((userRole) => userRole.role);
+      // // Get the URL of the uploaded image
+      // const { publicURL, error: urlError } = supabase.storage
+      //   .from("avatars")
+      //   .getPublicUrl(filePath);
 
-    // Fetch permissions for user's roles
-    if ( !userRoles.includes("moderator")) {
-      console.error("User is not an admin");
-      return;
-    }
-  
-    // If user is an admin, proceed with creating the employee
-    const { data, error } = await supabase
-      .from("employees")
-      .insert([{ username, full_name: fullName, avatar_url: avatarUrl , created_by : sessionAuth }]);
+      // if (urlError || !publicURL) {
+      //   console.error("Failed to get avatar URL:", urlError);
+      //   return;
+      // }
 
-    // If user has permission, proceed with creating the employee
-    if (error) {
-      console.error("Error adding user: ", error);
+      if (editingEmployeeId) {
+        console.log(editingEmployeeId, "aaaaaaa");
+        updateEmployee(editingEmployeeId, {
+          username,
+          full_name: fullName,
+          avatar_url: avatarUrl,
+        });
+      } else {
+        // Add new employee
+        addEmployee({
+          username,
+          full_name: fullName,
+          avatar_url: avatarUrl,
+          created_by : sessionAuth
+        });
+      }
+      resetForm();
     } else {
-      console.log("User added successfully: ", data);
-      setUsername("");
-      setFullName("");
-      setAvatarUrl("");
-      setIsFormOpen(false);
+      setErrorText("Username and Full Name are required.");
     }
   };
 
@@ -76,7 +99,12 @@ export default function HomeContainer({ session }) {
         Add User
       </button>
 
-      {isFormOpen && (
+      <Modal
+        open={isFormOpen}
+        onCancel={resetForm}
+        footer={null}
+        title="Add new employee"
+      >
         <form onSubmit={handleSubmit} className="mt-8">
           <label className="block">
             <span className="text-gray-700">Username:</span>
@@ -98,8 +126,17 @@ export default function HomeContainer({ session }) {
             />
           </label>
 
+          {/* <label className="block mt-4">
+            <span className="text-gray-700">Avatar:</span>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setAvatarFile(e.target.files[0])} // Save the selected file
+              className="mt-1 block w-full rounded-md bg-gray-100 border-transparent focus:border-gray-500 focus:bg-white focus:ring-0"
+            />
+          </label> */}
           <label className="block mt-4">
-            <span className="text-gray-700">Avatar URL:</span>
+            <span className="text-gray-700">Avatar :</span>
             <input
               type="text"
               value={avatarUrl}
@@ -108,16 +145,25 @@ export default function HomeContainer({ session }) {
             />
           </label>
 
-          <button
-            type="submit"
-            className="mt-6 bg-blue-500 text-white font-semibold py-2 px-4 rounded"
-          >
-            Submit
-          </button>
+          <div className="flex justify-end">
+            <button
+              onClick={resetForm}
+              className="mt-6  bg-slate-500 text-white font-semibold py-2 px-4 rounded"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              className="mt-6 ml-7 bg-blue-500 text-white font-semibold py-2 px-4 rounded"
+            >
+              Submit
+            </button>
+          </div>
         </form>
-      )}
+      </Modal>
+
       <h1 className="mb-12">Employee List.</h1>
-      {!!errorText && <Alert text={errorText} />}
       <div className="bg-white shadow overflow-hidden rounded-md">
         <ul>
           {employees.map((employee: any) => (
@@ -125,6 +171,7 @@ export default function HomeContainer({ session }) {
               key={employee.id}
               employee={employee}
               onDelete={() => deleteEmployee(employee.id)}
+              onEdit={() => handleEdit(employee)} // Add this line
             />
           ))}
         </ul>
@@ -133,16 +180,16 @@ export default function HomeContainer({ session }) {
   );
 }
 
-const Employee = ({ employee, onDelete }) => {
+const Employee = ({ employee, onDelete, onEdit }) => {
   return (
     <li className="w-full block cursor-pointer hover:bg-gray-200 focus:outline-none focus:bg-gray-200 transition duration-150 ease-in-out">
       <div className="flex items-center px-4 py-4 sm:px-6">
         <div className="min-w-0 flex-1 flex items-center">
-          {/* <img
+          <img
             src={employee.avatar_url}
             alt={employee.full_name}
             className="rounded-full h-12 w-12"
-          /> */}
+          />
           <div className="ml-4">
             <div className="text-sm leading-5 font-medium truncate">
               {employee.full_name}
@@ -152,6 +199,15 @@ const Employee = ({ employee, onDelete }) => {
             </div>
           </div>
         </div>
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onEdit();
+          }}
+        >
+          <EditOutlined />
+        </button>
 
         <button
           onClick={(e) => {
@@ -159,19 +215,8 @@ const Employee = ({ employee, onDelete }) => {
             e.stopPropagation();
             onDelete();
           }}
-          className="w-4 h-4 ml-2 border-2 hover:border-black rounded"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-            fill="gray"
-          >
-            <path
-              fillRule="evenodd"
-              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-              clipRule="evenodd"
-            />
-          </svg>
+          <DeleteOutlined />
         </button>
       </div>
     </li>
